@@ -94,20 +94,7 @@ sns.move_legend(ax, "upper left", bbox_to_anchor=(1, 1))
 all_stage_res['cleanTime'] = ['0:'+x if len(x.split(':')) < 3 else x for x in all_stage_res['totalTime']]
 all_stage_res['convTime'] = [float(x.split(':')[0])*3600+float(x.split(':')[1])*60+float(x.split(':')[2]) for x in all_stage_res['cleanTime']]
 
-
-
-from base64 import b64encode
-import io
-
 app = Dash(__name__)
-
-buffer = io.StringIO()
-
-
-html_bytes = buffer.getvalue().encode()
-encoded = b64encode(html_bytes).decode()
-
-
 
 
 app.layout = html.Div([
@@ -116,14 +103,8 @@ app.layout = html.Div([
     dcc.Checklist(
         id="checklist",
         options=["RC1", "RC2", "RC3"],
-        value=["RC1", ],
-        inline=True
-    ),
-    html.A(
-        html.Button("Download as HTML"), 
-        id="download",
-        href="data:text/html;base64," + encoded,
-        download="plotly_graph.html"
+        value=["RC1"],
+        inline=False
     ),
 ])
 
@@ -136,12 +117,11 @@ def update_line_chart(cur_class):
     mask = df.groupClass.isin(cur_class)
     fig = px.line(df[mask], 
         x="stage_id", y="convTime", color='driver')
-    fig.write_html(buffer)    
     return fig
 
 
+app.run_server(debug=False)
 
-app.run_server(debug=True)
 
 
 
