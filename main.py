@@ -175,14 +175,12 @@ def plot_per_stage_results(plotfolder=r"C:\Python\wrc_data_analysis\plots",
             plt.close()
 
 
-def plot_overall_results(plotfolder = r"C:\Python\wrc_data_analysis\plots",
-                         year=2024,
+def plot_overall_results(year=2024,
                          rally=1,
                          interactive=True):
     """Plots overall stage results as either static plot or interactive version using dash
 
     Args:
-        plotfolder (str, optional): Path to folder in which to save plots. Defaults to r"C:\Python\wrc_data_analysis\plots".
         year (int, optional): Year of desired rally. Defaults to 2024.
         rally (int, optional): Number of desired rally. Defaults to 1.
         interactive (bool, optional): Chooses the backend used for plotting. Defaults to True.
@@ -190,11 +188,6 @@ def plot_overall_results(plotfolder = r"C:\Python\wrc_data_analysis\plots",
     Returns:
         fig: dash figure
     """
-    plotfolder = os.path.join(plotfolder, str(year)+'_'+str(rally))
-
-    if not os.path.exists(plotfolder):
-        os.makedirs(plotfolder)
-
     # fetch data from public API
     rally_df = get_calendar(year)
     des_rally = rally_df[rally_df.guid == f'WRC_{year}_{rally:02}'].iloc[0]
@@ -212,34 +205,49 @@ def plot_overall_results(plotfolder = r"C:\Python\wrc_data_analysis\plots",
     # subselected data of highest class and clean entries
     cut_data = all_stage_res[all_stage_res.groupClass == 'RC1'].copy(True)
     cut_data['cleanTime'] = ['0:'+x if len(x.split(':')) < 3 else x for x in cut_data['totalTime']]
-    cut_data['convTime'] = [float(x.split(':')[0])*3600+float(x.split(':')[1])*60+float(x.split(':')[2]) for x in test['cleanTime']]
+    cut_data['convTime'] = [float(x.split(':')[0])*3600+float(x.split(':')[1])*60+float(x.split(':')[2]) for x in cut_data['cleanTime']]
 
     # determine which backend to use for plotting
     if interactive == True:
         # dash version
         all_stage_res['cleanTime'] = ['0:'+x if len(x.split(':')) < 3 else x for x in all_stage_res['totalTime']]
-        all_stage_res['convTime'] = [float(x.split(':')[0])*3600+float(x.split(':')[1])*60+float(x.split(':')[2]) for x in all_stage_res['cleanTime']]
-
+        all_stage_res['Cumulative Time [s]'] = [float(x.split(':')[0])*3600+float(x.split(':')[1])*60+float(x.split(':')[2]) for x in all_stage_res['cleanTime']]
+        all_stage_res['Cumulative Time'] = pd.to_timedelta(all_stage_res['Cumulative Time [s]'], unit='s')
+        all_stage_res['Cumulative Time [min]'] = all_stage_res['Cumulative Time']/pd.Timedelta(minutes=1)
+        all_stage_res['Driver'] = all_stage_res['driver']
+        all_stage_res['Stage [#]'] = all_stage_res['stage_id'] 
         app = Dash(__name__)
         app.layout = html.Div([
-            html.H4('Life expentancy progression of countries per continents'),
-            dcc.Graph(id="graph"),
+            html.H3(
+                'Stage results of WRC rally '+str(rally)+' of '+str(year),
+                style={'font-family': 'Verdana'}),
+            dcc.Graph(
+                id="graph"),
+            html.H4(
+                'Rally Class',
+                style={'font-family': 'Verdana'}),
             dcc.Checklist(
                 id="checklist",
                 options=["RC1", "RC2", "RC3"],
                 value=["RC1"],
-                inline=False
-            ),
-        ])
+                inline=True,
+                style={'font-family': 'Verdana'}
+            )], 
+            style={
+                'background-color': '#ffffff',})
 
         @app.callback(
             Output("graph", "figure"), 
             Input("checklist", "value"))
         def update_line_chart(cur_class):
-            df = all_stage_res # replace with your own data source
+            df = all_stage_res 
             mask = df.groupClass.isin(cur_class)
-            fig = px.line(df[mask], 
-                x="stage_id", y="convTime", color='driver')
+            fig = px.line(
+                df[mask], 
+                x="Stage [#]", 
+                y="Cumulative Time [min]", 
+                color='Driver',
+                template='plotly_white')
             return fig
 
         app.run_server(debug=False)
